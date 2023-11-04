@@ -1,5 +1,6 @@
 import argparse
 
+
 class CacheBlock:
     def __init__(self, block_size):
         self.valid = False
@@ -7,12 +8,15 @@ class CacheBlock:
         self.tag = None
         self.data = [0] * block_size
 
+
 class Cache:
     def __init__(self, size, associativity, block_size):
         self.size = size
         self.associativity = associativity
         self.block_size = block_size
-        self.blocks = [CacheBlock(block_size) for _ in range(size // (associativity * block_size))]
+        self.blocks = [
+            CacheBlock(block_size) for _ in range(size // (associativity * block_size))
+        ]
 
     def read(self, address):
         # Implement cache read operation
@@ -21,6 +25,7 @@ class Cache:
     def write(self, address, data):
         # Implement cache write operation
         pass
+
 
 class CoherenceProtocol:
     def __init__(self, cache):
@@ -34,6 +39,7 @@ class CoherenceProtocol:
         # Implement protocol-specific write operation
         pass
 
+
 class Core:
     def __init__(self, cache_size, associativity, block_size, protocol):
         self.cache = Cache(cache_size, associativity, block_size)
@@ -44,13 +50,20 @@ class Core:
         # Implement trace file parsing and simulation for this core
         pass
 
+
 def main():
     parser = argparse.ArgumentParser(description="Cache Coherence Simulator")
-    parser.add_argument("protocol", choices=["MESI", "Dragon"], help="Coherence protocol")
+    parser.add_argument(
+        "protocol", choices=["MESI", "Dragon"], help="Coherence protocol"
+    )
     parser.add_argument("input_file", help="Input benchmark name")
-    parser.add_argument("cache_size", type=int, help="Cache size in bytes")
-    parser.add_argument("associativity", type=int, help="Cache associativity")
-    parser.add_argument("block_size", type=int, help="Block size in bytes")
+    parser.add_argument(
+        "cache_size", type=int, default=4096, help="Cache size in bytes"
+    )
+    parser.add_argument(
+        "associativity", type=int, default=2, help="Cache associativity"
+    )
+    parser.add_argument("block_size", type=int, default=32, help="Block size in bytes")
     args = parser.parse_args()
 
     protocol = args.protocol
@@ -61,6 +74,7 @@ def main():
 
     core = Core(cache_size, associativity, block_size, protocol)
     core.execute(input_file)
+
 
 if __name__ == "__main__":
     main()
