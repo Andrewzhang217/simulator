@@ -14,41 +14,46 @@ class Cache:
         self.size = size
         self.associativity = associativity
         self.block_size = block_size
-        self.blocks = [
-            CacheBlock(block_size) for _ in range(size // (associativity * block_size))
-        ]
+        self.blocks = [{}] * (size // (associativity * block_size))
 
     def read(self, address):
         # Implement cache read operation
         pass
 
-    def write(self, address, data):
+    def write(self, address):
         # Implement cache write operation
         pass
 
 
-class CoherenceProtocol:
-    def __init__(self, cache):
-        self.cache = cache
-
-    def read(self, address):
-        # Implement protocol-specific read operation
-        pass
-
-    def write(self, address, data):
-        # Implement protocol-specific write operation
-        pass
-
-
 class Core:
-    def __init__(self, cache_size, associativity, block_size, protocol):
+    def __init__(self, cache_size, associativity, block_size, protocol, data):
         self.cache = Cache(cache_size, associativity, block_size)
-        self.protocol = CoherenceProtocol(self.cache)
-        self.cycle_count = 0
+        self.protocol = protocol
+        self.data = data
+        self.cycles = 0
+        self.compute_cycles = 0
+        self.load_store = 0
+        self.idle_cycles = 0
 
-    def execute(self, trace_file):
-        # Implement trace file parsing and simulation for this core
-        pass
+    def execute(self):
+        for line in self.data:
+            label, value = line.split()
+            label = int(label)
+
+            # TODO: actual cycles computation
+            if label == 0 or label == 1:  # Load or store instructions
+                address = int(value, 16)
+                if label == 0:
+                    self.cache.read(address)
+                else:
+                    self.cache.write(address)
+                self.load_store += 1
+                self.cycles += 1
+
+            elif label == 2:  # Other instructions
+                cycles = int(value, 16)
+                self.compute_cycles += cycles
+                self.cycles += cycles
 
 
 def main():
@@ -72,8 +77,17 @@ def main():
     associativity = args.associativity
     block_size = args.block_size
 
-    core = Core(cache_size, associativity, block_size, protocol)
-    core.execute(input_file)
+    cores = []
+    for i in range(4):
+        # Read and process the trace file for each core
+        with open(f"{input_file}_{i}.data", 'r') as file:
+            trace_data = file.readlines()  # Read the trace data
+        core = Core(cache_size, associativity, block_size, protocol, trace_data)
+        cores.append(core)
+
+    for core in cores:
+        core.execute()
+        # print(core.cycles)
 
 
 if __name__ == "__main__":
