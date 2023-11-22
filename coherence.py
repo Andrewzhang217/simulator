@@ -29,7 +29,7 @@ def main():
     cores = []
     for i in range(4):
         # Read and process the trace file for each core
-        with open(f"{input_file}_{i}.data", 'r') as file:
+        with open(f"./{input_file}_four/{input_file}_{i}.data", 'r') as file:
             trace_data = file.readlines()  # Read the trace data
         core = Core(i, cache_size, associativity, block_size, protocol, trace_data, shared_bus)
         cores.append(core)
