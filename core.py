@@ -22,17 +22,17 @@ class Core:
         line = self.data.popleft()
         label, value = line.split()
         label = int(label)
+        value = int(value, 16)
 
         if label == 0 or label == 1:  # Load or store instructions
-            address = int(value, 16)
+            address = bin(value)[2:].zfill(32)
             if label == 0:
-                self.cache.read(address)
+                self.cache.read(address, global_cycle)
             else:
-                self.cache.write(address)
+                self.cache.write(address, global_cycle)
             self.load_store += 1
             self.cycles += 1
 
         elif label == 2:  # Other instructions
-            cycles = int(value, 16)
-            self.compute_cycles += cycles
-            self.cycles += cycles
+            self.compute_cycles += value
+            self.cycles += value
