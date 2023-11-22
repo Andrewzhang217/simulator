@@ -34,12 +34,6 @@ class MESI(Protocol):
         self.cache = cache
         self.shared_bus = shared_bus
 
-    # Todo: prrd prwr write back
-    # if selectedState.get_state() == State.M:
-    #     # Write back to memory
-    #     new_transaction = Transaction(core_id, TransactionType.BusWr, address)
-    #     sharedBus.add_transaction(Transaction.Type.BusWr, new_transaction)
-
     def PrRd(self, address, cycle):
 
         tag_bits = address[:len(address) - self.cache.index_bits - self.cache.offset_bits]
@@ -64,7 +58,7 @@ class MESI(Protocol):
                 if block.state == 'I':
                     empty_block = i
                     break
-            if empty_block == -1:  # no empty block, cache set full
+            if empty_block == -1:  # no empty block, cache set full, evict a block
                 min_lru_index = 0
                 min_lru = cache_set[0].last_used_cycle
 
@@ -72,6 +66,11 @@ class MESI(Protocol):
                     if block.last_used_cycle < min_lru:
                         min_lru = block.last_used_cycle
                         min_lru_index = i
+
+                if cache_set[min_lru_index].state == MESI.State.M:
+                    # Write dirty block back to memory
+                    new_transaction = Transaction(self.core_id, Transaction.Type.Flush, address)
+                    self.shared_bus.add_transaction(Transaction.Type.Flush, new_transaction)
 
                 # load from main memory
                 cache_set[min_lru_index].last_used_cycle = cycle
@@ -110,6 +109,11 @@ class MESI(Protocol):
                     if block.last_used_cycle < min_lru:
                         min_lru = block.last_used_cycle
                         min_lru_index = i
+
+                if cache_set[min_lru_index].state == MESI.State.M:
+                    # Write dirty block back to memory
+                    new_transaction = Transaction(self.core_id, Transaction.Type.Flush, address)
+                    self.shared_bus.add_transaction(Transaction.Type.Flush, new_transaction)
 
                 # load from main memory
                 cache_set[min_lru_index].last_used_cycle = cycle
