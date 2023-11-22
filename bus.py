@@ -32,5 +32,8 @@ class Bus:
                 if self.S[address] == 0:
                     del self.S[address]
 
-    def add_transaction(self, trans_type, new_transaction):
-        pass  # Implement add_transaction logic for shared bus
+    def add_transaction(self, transaction):
+        self.queue.appendleft(transaction)
+
+    def get_next_transaction(self):
+        return self.queue.pop()

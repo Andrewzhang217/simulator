@@ -1,5 +1,4 @@
 import argparse
-from cache import Cache
 from bus import Bus
 from core import Core
 

@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 from bus import Bus, Transaction
+from cache import Cache, CacheBlock
 
 
 class Protocol(ABC):
@@ -22,6 +23,7 @@ class Protocol(ABC):
         pass
 
 
+# Todo: Evict block with state M should actually add a new transaction with its own address, instead of new address
 class MESI(Protocol):
     class State(Enum):
         M = 0
@@ -58,7 +60,17 @@ class MESI(Protocol):
                 if block.state == 'I':
                     empty_block = i
                     break
-            if empty_block == -1:  # no empty block, cache set full, evict a block
+            if empty_block != -1:  # find empty block in cache set
+
+                if address in self.shared_bus.S:
+                    state = MESI.State.S
+                else:
+                    state = MESI.State.E
+
+                self.shared_bus.set_shared_block(address)
+                cache_set[empty_block] = CacheBlock(tag, state, cycle)
+
+            else:  # no empty block, cache set full, evict a block
                 min_lru_index = 0
                 min_lru = cache_set[0].last_used_cycle
 
@@ -70,13 +82,19 @@ class MESI(Protocol):
                 if cache_set[min_lru_index].state == MESI.State.M:
                     # Write dirty block back to memory
                     new_transaction = Transaction(self.core_id, Transaction.Type.Flush, address)
-                    self.shared_bus.add_transaction(Transaction.Type.Flush, new_transaction)
+                    self.shared_bus.add_transaction(new_transaction)
 
                 # load from main memory
-                cache_set[min_lru_index].last_used_cycle = cycle
+                if address in self.shared_bus.S:
+                    state = MESI.State.S
+                else:
+                    state = MESI.State.E
+
+                self.shared_bus.set_shared_block(address)
+                cache_set[min_lru_index] = CacheBlock(tag, state, cycle)
 
             new_transaction = Transaction(self.core_id, Transaction.Type.BusRd, address)
-            self.shared_bus.add_transaction(Transaction.Type.BusRd, new_transaction)
+            self.shared_bus.add_transaction(new_transaction)
 
     def PrWr(self, address, cycle):
         tag_bits = address[:len(address) - self.cache.index_bits - self.cache.offset_bits]
@@ -92,7 +110,13 @@ class MESI(Protocol):
         for i, block in enumerate(cache_set):
             if block.tag == tag and block.state != 'I':
                 hit = True
-                block.last_used_cycle = cycle
+                if block.state == MESI.State.E:
+                    cache_set[i] = CacheBlock(tag, MESI.State.M, cycle)
+                elif block.state == MESI.State.S:
+                    cache_set[i] = CacheBlock(tag, MESI.State.M, cycle)
+                    new_transaction = Transaction(self.core_id, Transaction.Type.BusRdX, address)
+                    self.shared_bus.add_transaction(new_transaction)
+                    self.shared_bus.unset_shared_block(address)
 
         # miss, load from main memory
         if not hit:
@@ -101,7 +125,11 @@ class MESI(Protocol):
                 if block.state == 'I':
                     empty_block = i
                     break
-            if empty_block == -1:  # no empty block, cache set full
+
+            if empty_block != -1:  # find empty block in cache set
+                cache_set[empty_block] = CacheBlock(tag, MESI.State.M, cycle)
+
+            else:  # no empty block, cache set full, evict a block
                 min_lru_index = 0
                 min_lru = cache_set[0].last_used_cycle
 
@@ -113,12 +141,13 @@ class MESI(Protocol):
                 if cache_set[min_lru_index].state == MESI.State.M:
                     # Write dirty block back to memory
                     new_transaction = Transaction(self.core_id, Transaction.Type.Flush, address)
-                    self.shared_bus.add_transaction(Transaction.Type.Flush, new_transaction)
+                    self.shared_bus.add_transaction(new_transaction)
 
                 # load from main memory
-                cache_set[min_lru_index].last_used_cycle = cycle
+                self.shared_bus.unset_shared_block(address)
+                cache_set[min_lru_index] = CacheBlock(tag, MESI.State.M, cycle)
             new_transaction = Transaction(self.core_id, Transaction.Type.BusRdX, address)
-            self.shared_bus.add_transaction(Transaction.Type.BusRdX, new_transaction)
+            self.shared_bus.add_transaction(new_transaction)
 
     def Snoop(self, transaction):
         trans_type = transaction.trans_type
@@ -145,31 +174,18 @@ class MESI(Protocol):
             if trans_type == Transaction.Type.BusRd:
                 if block_to_transit.state == MESI.State.M or block_to_transit.state == MESI.State.E:
                     block_to_transit.state = MESI.State.S
-                    new_transaction = Transaction(
-                        self.core_id,
-                        Transaction.Type.Flush,
-                        address
-                    )
-                    self.shared_bus.add_transaction(
-                        Transaction.Type.BusWr,
-                        new_transaction
-                    )
+                    new_transaction = Transaction(self.core_id, Transaction.Type.Flush, address)
+                    self.shared_bus.add_transaction(new_transaction)
 
             elif trans_type == Transaction.Type.BusRdX:
                 if block_to_transit.state == MESI.State.M or block_to_transit.state == MESI.State.E:
                     block_to_transit.state = MESI.State.I
-                    new_transaction = Transaction(
-                        self.core_id,
-                        Transaction.Type.Flush,
-                        address
-                    )
-                    self.shared_bus.add_transaction(
-                        Transaction.Type.BusWr,
-                        new_transaction
-                    )
+                    new_transaction = Transaction(self.core_id, Transaction.Type.Flush, address)
+                    self.shared_bus.add_transaction(new_transaction)
                 elif block_to_transit.state == MESI.State.S:
                     block_to_transit.state = MESI.State.I
-                    self.shared_bus.unset_shared_line(address)
+
+                self.shared_bus.unset_shared_line(address)
 
 
 class Dragon(Protocol):

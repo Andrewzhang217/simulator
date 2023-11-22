@@ -2,10 +2,10 @@ import math
 
 
 class CacheBlock:
-    def __init__(self, tag=None, state='I'):
+    def __init__(self, tag=None, state='I', cycle=0):
         self.tag = tag
         self.state = state
-        self.last_used_cycle = 0
+        self.last_used_cycle = cycle
 
 
 class Cache:
@@ -18,13 +18,3 @@ class Cache:
         self.offset_bits = int(math.log2(block_size))
         self.index_bits = int(math.log2(self.num_sets))
         self.blocks = [[CacheBlock() for _ in range(associativity)] for _ in range(self.num_sets)]
-
-    #
-    # def read(self, address, cycle):
-    #     # Implement cache read operation
-    #
-    #
-    #
-    # def write(self, address, cycle):
-    #     # Implement cache write operation
-
