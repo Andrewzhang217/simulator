@@ -1,11 +1,17 @@
 from collections import deque
-from cache import *
+from cache import Cache
+from protocol import MESI, Dragon
 
 
 class Core:
-    def __init__(self, cache_size, associativity, block_size, protocol, data):
+    def __init__(self, core_id, cache_size, associativity, block_size, protocol, data, shared_bus):
+        self.core_id = core_id
         self.cache = Cache(cache_size, associativity, block_size)
         self.protocol = protocol
+        if protocol == "MESI":
+            self.protocol = MESI(core_id, self.cache, shared_bus)
+        elif protocol == "Dragon":
+            self.protocol = Dragon(core_id, self.cache, shared_bus)
         self.data = deque(data)
         self.cycles = 0
         self.compute_cycles = 0
@@ -27,9 +33,9 @@ class Core:
         if label == 0 or label == 1:  # Load or store instructions
             address = bin(value)[2:].zfill(32)
             if label == 0:
-                self.cache.read(address, global_cycle)
+                self.protocol.PrRd(address, global_cycle)
             else:
-                self.cache.write(address, global_cycle)
+                self.protocol.PrWr(address, global_cycle)
             self.load_store += 1
             self.cycles += 1
 
