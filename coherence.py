@@ -44,6 +44,16 @@ def main():
                 core.execute(global_cycle)
         global_cycle += 1
 
+    print('===== END OF EXECUTION =====')
+    overall_cycles = 0
+    for core in cores:
+        core.output()
+        if core.cycles > overall_cycles:
+            overall_cycles = core.cycles
+    print("Overall execution cycles:", overall_cycles)
+    print('\n')
+
+
 
 if __name__ == "__main__":
     main()

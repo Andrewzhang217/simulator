@@ -15,7 +15,8 @@ class Core:
         self.data = deque(data)
         self.cycles = 0
         self.compute_cycles = 0
-        self.load_store = 0
+        self.loads = 0
+        self.stores = 0
         self.idle_cycles = 0
 
     def is_empty(self):
@@ -34,11 +35,21 @@ class Core:
             address = bin(value)[2:].zfill(32)
             if label == 0:
                 self.protocol.PrRd(address, global_cycle)
+                self.loads += 1
             else:
                 self.protocol.PrWr(address, global_cycle)
-            self.load_store += 1
+                self.stores += 1
             self.cycles += 1
 
         elif label == 2:  # Other instructions
             self.compute_cycles += value
             self.cycles += value
+
+    def output(self):
+        print('Core: ', self.core_id)
+        print('Execution Cycles:', self.cycles)
+        print('Compute Cycles:', self.compute_cycles)
+        print('Load Instructions:', self.loads)
+        print('Store Instructions:', self.stores)
+        print('Idle Cycles:', self.cycles - self.compute_cycles)
+        print('\n')
