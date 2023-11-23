@@ -31,6 +31,14 @@ class Protocol:
 
         return min_lru_index
 
+    def get_empty_block(self, cache_set):
+
+        for i, block in enumerate(cache_set):
+            if block.state == 'I':
+                return i
+
+        return -1
+
 
 # Todo: Evict block with state M should actually add a new transaction with its own address, instead of new address
 class MESI(Protocol):
@@ -58,12 +66,9 @@ class MESI(Protocol):
                 block.last_used_cycle = cycle
         # miss, load from main memory
         if not hit:
-            empty_block = -1
             execution_cycle += 2
-            for i, block in enumerate(cache_set):
-                if block.state == 'I':
-                    empty_block = i
-                    break
+            empty_block = self.get_empty_block(cache_set)
+
             if empty_block != -1:  # find empty block in cache set
 
                 if address in self.shared_bus.S:
@@ -120,12 +125,8 @@ class MESI(Protocol):
 
         # miss, load from main memory
         if not hit:
-            empty_block = -1
             execution_cycle += 2
-            for i, block in enumerate(cache_set):
-                if block.state == 'I':
-                    empty_block = i
-                    break
+            empty_block = self.get_empty_block(cache_set)
 
             if empty_block != -1:  # find empty block in cache set
                 cache_set[empty_block] = CacheBlock(tag, MESI.State.M, cycle)
@@ -209,13 +210,9 @@ class Dragon(Protocol):
 
         # PrRdMiss, load from main memory
         if not hit:
-            empty_block = -1
             execution_cycle += 2
-            for i, block in enumerate(cache_set):
-                # empty block is 'I' state by default
-                if block.state == 'I':
-                    empty_block = i
-                    break
+            empty_block = self.get_empty_block(cache_set)
+
             if empty_block != -1:  # find empty block in cache set
                 # determine whether this cache block is shared on bus
                 if address in self.shared_bus.S:
@@ -296,12 +293,8 @@ class Dragon(Protocol):
 
         # PrWrMiss, the cache must obtain the data block, place it in the cache, and then write the new data
         if not hit:
-            empty_block = -1
             execution_cycle += 2
-            for i, block in enumerate(cache_set):
-                if block.state == 'I':
-                    empty_block = i
-                    break
+            empty_block = self.get_empty_block(cache_set)
 
             if empty_block != -1:  # find empty block in cache set
                 # determine whether this address is shared on bus
