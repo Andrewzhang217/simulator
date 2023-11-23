@@ -154,6 +154,9 @@ class MESI(Protocol):
         return execution_cycle
 
     def Snoop(self, transaction):
+        if not transaction:
+            return
+
         trans_type = transaction.trans_type
         address = transaction.address
 
@@ -186,7 +189,7 @@ class MESI(Protocol):
                 elif block_to_transit.state == MESI.State.S:
                     block_to_transit.state = MESI.State.I
                     self.shared_bus.invalidations += 1
-                self.shared_bus.unset_shared_line(address)
+                self.shared_bus.unset_shared_block(address)
 
 
 class Dragon(Protocol):
@@ -337,6 +340,8 @@ class Dragon(Protocol):
         return execution_cycle
 
     def Snoop(self, transaction):
+        if not transaction:
+            return
         trans_type = transaction.trans_type
         address = transaction.address
 

@@ -39,6 +39,8 @@ class Bus:
         self.queue.appendleft(transaction)
 
     def get_next_transaction(self):
+        if not self.queue:
+            return
         return self.queue.pop()
 
     def output(self):
