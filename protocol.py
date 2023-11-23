@@ -20,6 +20,17 @@ class Protocol:
         tag = int(tag_bits, 2)
         return index, tag
 
+    def lru_block_index(self, cache_set):
+        min_lru_index = 0
+        min_lru = cache_set[0].last_used_cycle
+
+        for i, block in enumerate(cache_set[1:], start=1):
+            if block.last_used_cycle < min_lru:
+                min_lru = block.last_used_cycle
+                min_lru_index = i
+
+        return min_lru_index
+
 
 # Todo: Evict block with state M should actually add a new transaction with its own address, instead of new address
 class MESI(Protocol):
@@ -65,13 +76,7 @@ class MESI(Protocol):
                 # execution_cycle += 2
 
             else:  # no empty block, cache set full, evict a block
-                min_lru_index = 0
-                min_lru = cache_set[0].last_used_cycle
-
-                for i, block in enumerate(cache_set[1:], start=1):
-                    if block.last_used_cycle < min_lru:
-                        min_lru = block.last_used_cycle
-                        min_lru_index = i
+                min_lru_index = self.lru_block_index(cache_set)
 
                 if cache_set[min_lru_index].state == MESI.State.M:
                     # Write dirty block back to memory
@@ -126,13 +131,7 @@ class MESI(Protocol):
                 cache_set[empty_block] = CacheBlock(tag, MESI.State.M, cycle)
                 # execution_cycle += 2
             else:  # no empty block, cache set full, evict a block
-                min_lru_index = 0
-                min_lru = cache_set[0].last_used_cycle
-
-                for i, block in enumerate(cache_set[1:], start=1):
-                    if block.last_used_cycle < min_lru:
-                        min_lru = block.last_used_cycle
-                        min_lru_index = i
+                min_lru_index = self.lru_block_index(cache_set)
 
                 if cache_set[min_lru_index].state == MESI.State.M:
                     # Write dirty block back to memory
@@ -233,13 +232,7 @@ class Dragon(Protocol):
                 # execution_cycle += 2
 
             else:  # no empty block, cache set full, evict a block
-                min_lru_index = 0
-                min_lru = cache_set[0].last_used_cycle
-
-                for i, block in enumerate(cache_set[1:], start=1):
-                    if block.last_used_cycle < min_lru:
-                        min_lru = block.last_used_cycle
-                        min_lru_index = i
+                min_lru_index = self.lru_block_index(cache_set)
 
                 if cache_set[min_lru_index].state == Dragon.State.M or cache_set[
                     min_lru_index].state == Dragon.State.Sm:
@@ -320,13 +313,7 @@ class Dragon(Protocol):
                     cache_set[empty_block] = CacheBlock(tag, Dragon.State.M, cycle)
                 # execution_cycle += 2
             else:  # no empty block, cache set full, evict a block
-                min_lru_index = 0
-                min_lru = cache_set[0].last_used_cycle
-
-                for i, block in enumerate(cache_set[1:], start=1):
-                    if block.last_used_cycle < min_lru:
-                        min_lru = block.last_used_cycle
-                        min_lru_index = i
+                min_lru_index = self.lru_block_index(cache_set)
 
                 if cache_set[min_lru_index].state == Dragon.State.M or cache_set[
                     min_lru_index].state == Dragon.State.Sm:
