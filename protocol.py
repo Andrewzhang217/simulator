@@ -266,7 +266,7 @@ class Dragon(Protocol):
                         min_lru = block.last_used_cycle
                         min_lru_index = i
 
-                if cache_set[min_lru_index].state == Dragon.State.M and cache_set[min_lru_index].state == Dragon.State.Sm:
+                if cache_set[min_lru_index].state == Dragon.State.M or cache_set[min_lru_index].state == Dragon.State.Sm:
                     # Write dirty block back to memory
                     new_transaction = Transaction(self.core_id, Transaction.Type.Flush, address)
                     self.shared_bus.add_transaction(new_transaction)
@@ -385,4 +385,37 @@ class Dragon(Protocol):
         return execution_cycle
     
     def Snoop(self, transaction):
-        pass
+        trans_type = transaction.trans_type
+        address = transaction.address
+
+        tag_bits = address[:len(address) - self.cache.index_bits - self.cache.offset_bits]
+        index_bits = address[len(address) - self.cache.index_bits - self.cache.offset_bits:len(
+            address) - self.cache.offset_bits]
+
+        index = int(index_bits, 2)
+        tag = int(tag_bits, 2)
+        cache_set = self.cache.blocks[index]
+
+        block_to_transit = None
+        if transaction.core_id != self.core_id:
+            # Implement logic for transactions issued by other processors
+            for block in cache_set:
+                if block.tag == tag:
+                    block_to_transit = block
+
+            if block_to_transit is None:
+                return
+
+            self.shared_bus.traffic_bytes += self.cache.block_size
+            if trans_type == Transaction.Type.BusRd:
+                if block_to_transit.state == Dragon.State.M or block_to_transit.state == Dragon.State.Sm:
+                    block_to_transit.state = Dragon.State.Sm
+                    new_transaction = Transaction(self.core_id, Transaction.Type.Flush, address)
+                    self.shared_bus.add_transaction(new_transaction)
+
+                if block_to_transit.state == Dragon.State.Sc or block_to_transit.state == Dragon.State.E:
+                    block_to_transit.state = Dragon.State.Sc
+
+            elif trans_type == Transaction.Type.BusUpd:
+                if block_to_transit.state == Dragon.State.Sm or block_to_transit.state == Dragon.State.Sc:
+                    block_to_transit.state = Dragon.State.Sc
