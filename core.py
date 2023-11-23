@@ -34,12 +34,13 @@ class Core:
         if label == 0 or label == 1:  # Load or store instructions
             address = bin(value)[2:].zfill(32)
             if label == 0:
-                self.protocol.PrRd(address, global_cycle)
                 self.loads += 1
+                # self.cycles += 1
+                self.cycles += self.protocol.PrRd(address, global_cycle)
             else:
-                self.protocol.PrWr(address, global_cycle)
                 self.stores += 1
-            self.cycles += 1
+                # self.cycles += 1
+                self.cycles += self.protocol.PrWr(address, global_cycle)
 
         elif label == 2:  # Other instructions
             self.compute_cycles += value
