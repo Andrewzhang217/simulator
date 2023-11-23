@@ -53,4 +53,4 @@ class Core:
         print('Load Instructions:', self.loads)
         print('Store Instructions:', self.stores)
         print('Idle Cycles:', self.cycles - self.compute_cycles)
-        print('\n')
+        print('Cache Miss Rate:', self.cache.miss / (self.cache.miss + self.cache.hit) * 100, '%')

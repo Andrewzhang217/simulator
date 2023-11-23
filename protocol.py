@@ -40,9 +40,11 @@ class Protocol:
 
     def cache_hit(self, cache_set, tag):
         for i, block in enumerate(cache_set):
-            if block.tag == tag and block.state != 'I':
+            if block.tag == tag and block.state != 'I':  # hit
+                self.cache.hit += 1
                 return i
 
+        self.cache.miss += 1
         return -1  # miss
 
 

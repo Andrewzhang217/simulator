@@ -18,3 +18,5 @@ class Cache:
         self.offset_bits = int(math.log2(block_size))
         self.index_bits = int(math.log2(self.num_sets))
         self.blocks = [[CacheBlock() for _ in range(associativity)] for _ in range(self.num_sets)]
+        self.hit = 0
+        self.miss = 0
