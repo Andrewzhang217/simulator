@@ -183,6 +183,7 @@ class MESI(Protocol):
             if block_to_transit is None:
                 return
 
+            self.shared_bus.traffic_bytes += self.cache.block_size
             if trans_type == Transaction.Type.BusRd:
                 if block_to_transit.state == MESI.State.M or block_to_transit.state == MESI.State.E:
                     block_to_transit.state = MESI.State.S
@@ -192,11 +193,12 @@ class MESI(Protocol):
             elif trans_type == Transaction.Type.BusRdX:
                 if block_to_transit.state == MESI.State.M or block_to_transit.state == MESI.State.E:
                     block_to_transit.state = MESI.State.I
+                    self.shared_bus.invalidations += 1
                     new_transaction = Transaction(self.core_id, Transaction.Type.Flush, address)
                     self.shared_bus.add_transaction(new_transaction)
                 elif block_to_transit.state == MESI.State.S:
                     block_to_transit.state = MESI.State.I
-
+                    self.shared_bus.invalidations += 1
                 self.shared_bus.unset_shared_line(address)
 
 

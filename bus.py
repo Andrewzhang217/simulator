@@ -18,6 +18,8 @@ class Bus:
     def __init__(self):
         self.S = {}
         self.queue = deque()
+        self.traffic_bytes = 0
+        self.invalidations = 0
 
     def set_shared_block(self, address):
         if address in self.S:
@@ -37,3 +39,11 @@ class Bus:
 
     def get_next_transaction(self):
         return self.queue.pop()
+    
+    def output(self):
+        print('===== REPORT FOR BUS =====')
+        print('Data Traffic (Bytes):', self.traffic_bytes)
+        print('Invalidations:', self.invalidations)
+        # print('Access to Private Data:', self.private_access/(self.private_access + self.public_access))
+        # print('Access to Public Data:', self.public_access / (self.private_access + self.public_access))
+        print('\n')

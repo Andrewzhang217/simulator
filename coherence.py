@@ -51,6 +51,7 @@ def main():
         if core.cycles > overall_cycles:
             overall_cycles = core.cycles
     print("Overall execution cycles:", overall_cycles)
+    shared_bus.output()
     print('\n')
 
 
