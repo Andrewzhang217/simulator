@@ -38,10 +38,13 @@ def main():
     has_instr = True
     while has_instr:
         has_instr = False
+        transaction = shared_bus.get_next_transaction()
         for core in cores:
             if not core.is_empty():
                 has_instr = True
                 core.execute(global_cycle)
+                if transaction:
+                    core.listen(transaction)
         global_cycle += 1
 
     print('===== END OF EXECUTION =====')

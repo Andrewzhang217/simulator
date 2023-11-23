@@ -46,6 +46,9 @@ class Core:
             self.compute_cycles += value
             self.cycles += value
 
+    def listen(self, transaction):
+        self.protocol.Snoop(transaction)
+
     def output(self):
         print('Core: ', self.core_id)
         print('Execution Cycles:', self.cycles)
