@@ -32,12 +32,18 @@ class Protocol:
         return min_lru_index
 
     def get_empty_block(self, cache_set):
-
         for i, block in enumerate(cache_set):
             if block.state == 'I':
                 return i
 
         return -1
+
+    def cache_hit(self, cache_set, tag):
+        for i, block in enumerate(cache_set):
+            if block.tag == tag and block.state != 'I':
+                return i
+
+        return -1  # miss
 
 
 # Todo: Evict block with state M should actually add a new transaction with its own address, instead of new address
@@ -55,17 +61,16 @@ class MESI(Protocol):
 
         index, tag = self.convert_address(address)
         cache_set = self.cache.blocks[index]
-        hit = False
+        hit_id = self.cache_hit(cache_set, tag)
         execution_cycle = 0
 
         # determine cache hit
-        for i, block in enumerate(cache_set):
-            if block.tag == tag and block.state != 'I':
-                hit = True
-                execution_cycle += 1
-                block.last_used_cycle = cycle
+        if hit_id != -1:
+            execution_cycle += 1
+            cache_set[hit_id].last_used_cycle = cycle
+
         # miss, load from main memory
-        if not hit:
+        else:
             execution_cycle += 2
             empty_block = self.get_empty_block(cache_set)
 
@@ -107,24 +112,22 @@ class MESI(Protocol):
 
         index, tag = self.convert_address(address)
         cache_set = self.cache.blocks[index]
-        hit = False
         execution_cycle = 0
+        hit_id = self.cache_hit(cache_set, tag)
 
         # determine cache hit
-        for i, block in enumerate(cache_set):
-            if block.tag == tag and block.state != 'I':
-                hit = True
-                execution_cycle += 1
-                if block.state == MESI.State.E:
-                    cache_set[i] = CacheBlock(tag, MESI.State.M, cycle)
-                elif block.state == MESI.State.S:
-                    cache_set[i] = CacheBlock(tag, MESI.State.M, cycle)
-                    new_transaction = Transaction(self.core_id, Transaction.Type.BusRdX, address)
-                    self.shared_bus.add_transaction(new_transaction)
-                    self.shared_bus.unset_shared_block(address)
+        if hit_id != -1:
+            execution_cycle += 1
+            if cache_set[hit_id].state == MESI.State.E:
+                cache_set[hit_id] = CacheBlock(tag, MESI.State.M, cycle)
+            elif cache_set[hit_id].state == MESI.State.S:
+                cache_set[hit_id] = CacheBlock(tag, MESI.State.M, cycle)
+                new_transaction = Transaction(self.core_id, Transaction.Type.BusRdX, address)
+                self.shared_bus.add_transaction(new_transaction)
+                self.shared_bus.unset_shared_block(address)
 
         # miss, load from main memory
-        if not hit:
+        else:
             execution_cycle += 2
             empty_block = self.get_empty_block(cache_set)
 
@@ -198,18 +201,16 @@ class Dragon(Protocol):
 
         index, tag = self.convert_address(address)
         cache_set = self.cache.blocks[index]
-        hit = False
         execution_cycle = 0
+        hit_id = self.cache_hit(cache_set, tag)
 
         # determine cache hit, no state transition if hit
-        for i, block in enumerate(cache_set):
-            if block.tag == tag and block.state != 'I':
-                hit = True
-                execution_cycle += 1
-                block.last_used_cycle = cycle
+        if hit_id != -1:
+            execution_cycle += 1
+            cache_set[hit_id].last_used_cycle = cycle
 
         # PrRdMiss, load from main memory
-        if not hit:
+        else:
             execution_cycle += 2
             empty_block = self.get_empty_block(cache_set)
 
@@ -264,35 +265,33 @@ class Dragon(Protocol):
 
         index, tag = self.convert_address(address)
         cache_set = self.cache.blocks[index]
-        hit = False
         execution_cycle = 0
+        hit_id = self.cache_hit(cache_set, tag)
 
         # determine cache hit, if hit
-        for i, block in enumerate(cache_set):
-            if block.tag == tag and block.state != 'I':
-                hit = True
-                execution_cycle += 1
-                if block.state == Dragon.State.M:
-                    cache_set[i] = CacheBlock(tag, Dragon.State.M, cycle)
-                elif block.state == Dragon.State.Sm and address not in self.shared_bus.S:
-                    cache_set[i] = CacheBlock(tag, Dragon.State.M, cycle)
-                elif block.state == Dragon.State.Sm and address in self.shared_bus.S:
-                    cache_set[i] = CacheBlock(tag, Dragon.State.Sm, cycle)
-                    # tell other caches that they should update their state for this particular cache line
-                    new_transaction = Transaction(self.core_id, Transaction.Type.BusUpd, address)
-                    self.shared_bus.add_transaction(new_transaction)
-                elif block.state == Dragon.State.E:
-                    cache_set[i] = CacheBlock(tag, Dragon.State.M, cycle)
-                elif block.state == Dragon.State.Sc and address not in self.shared_bus.S:
-                    cache_set[i] = CacheBlock(tag, Dragon.State.M, cycle)
-                elif block.state == Dragon.State.Sc and address in self.shared_bus.S:
-                    cache_set[i] = CacheBlock(tag, Dragon.State.Sm, cycle)
-                    # tell other caches that they should update their state for this particular cache line
-                    new_transaction = Transaction(self.core_id, Transaction.Type.BusUpd, address)
-                    self.shared_bus.add_transaction(new_transaction)
+        if hit_id != -1:
+            execution_cycle += 1
+            if cache_set[hit_id].state == Dragon.State.M:
+                cache_set[hit_id] = CacheBlock(tag, Dragon.State.M, cycle)
+            elif cache_set[hit_id].state == Dragon.State.Sm and address not in self.shared_bus.S:
+                cache_set[hit_id] = CacheBlock(tag, Dragon.State.M, cycle)
+            elif cache_set[hit_id].state == Dragon.State.Sm and address in self.shared_bus.S:
+                cache_set[hit_id] = CacheBlock(tag, Dragon.State.Sm, cycle)
+                # tell other caches that they should update their state for this particular cache line
+                new_transaction = Transaction(self.core_id, Transaction.Type.BusUpd, address)
+                self.shared_bus.add_transaction(new_transaction)
+            elif cache_set[hit_id].state == Dragon.State.E:
+                cache_set[hit_id] = CacheBlock(tag, Dragon.State.M, cycle)
+            elif cache_set[hit_id].state == Dragon.State.Sc and address not in self.shared_bus.S:
+                cache_set[hit_id] = CacheBlock(tag, Dragon.State.M, cycle)
+            elif cache_set[hit_id].state == Dragon.State.Sc and address in self.shared_bus.S:
+                cache_set[hit_id] = CacheBlock(tag, Dragon.State.Sm, cycle)
+                # tell other caches that they should update their state for this particular cache line
+                new_transaction = Transaction(self.core_id, Transaction.Type.BusUpd, address)
+                self.shared_bus.add_transaction(new_transaction)
 
         # PrWrMiss, the cache must obtain the data block, place it in the cache, and then write the new data
-        if not hit:
+        else:
             execution_cycle += 2
             empty_block = self.get_empty_block(cache_set)
 
