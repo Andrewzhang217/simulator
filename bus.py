@@ -7,6 +7,7 @@ class Transaction:
         BusRd = 0
         BusRdX = 1
         Flush = 2
+        BusUpd = 3
 
     def __init__(self, core_id, trans_type, address):
         self.core_id = core_id
