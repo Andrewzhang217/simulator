@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 from enum import Enum
 from bus import Bus, Transaction
 from cache import Cache, CacheBlock
@@ -176,17 +175,23 @@ class MESI(Protocol):
             self.shared_bus.traffic_bytes += self.cache.block_size
             if trans_type == Transaction.Type.BusRd:
                 if block_to_transit.state == MESI.State.M or block_to_transit.state == MESI.State.E:
+                    self.shared_bus.private_access += 1
                     block_to_transit.state = MESI.State.S
                     new_transaction = Transaction(self.core_id, Transaction.Type.Flush, address)
                     self.shared_bus.add_transaction(new_transaction)
 
+                if block_to_transit.state == MESI.State.S:
+                    self.shared_bus.public_access += 1
+
             elif trans_type == Transaction.Type.BusRdX:
                 if block_to_transit.state == MESI.State.M or block_to_transit.state == MESI.State.E:
+                    self.shared_bus.private_access += 1
                     block_to_transit.state = MESI.State.I
                     self.shared_bus.invalidations += 1
                     new_transaction = Transaction(self.core_id, Transaction.Type.Flush, address)
                     self.shared_bus.add_transaction(new_transaction)
                 elif block_to_transit.state == MESI.State.S:
+                    self.shared_bus.public_access += 1
                     block_to_transit.state = MESI.State.I
                     self.shared_bus.invalidations += 1
                 self.shared_bus.unset_shared_block(address)
@@ -359,6 +364,11 @@ class Dragon(Protocol):
                 return
 
             self.shared_bus.traffic_bytes += self.cache.block_size
+            if block_to_transit.state == Dragon.State.Sm or block_to_transit.state == Dragon.State.Sc:
+                self.shared_bus.public_access += 1
+            if block_to_transit.state == Dragon.State.M or block_to_transit.state == Dragon.State.E:
+                self.shared_bus.private_access += 1
+
             if trans_type == Transaction.Type.BusRd:
                 if block_to_transit.state == Dragon.State.M or block_to_transit.state == Dragon.State.Sm:
                     block_to_transit.state = Dragon.State.Sm
