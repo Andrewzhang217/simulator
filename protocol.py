@@ -4,23 +4,21 @@ from bus import Bus, Transaction
 from cache import Cache, CacheBlock
 
 
-class Protocol(ABC):
-    class Type(Enum):
-        NONE = 0
-        MESI = 1
-        DRAGON = 2
+class Protocol:
 
-    @abstractmethod
-    def PrRd(self, address, cycle):
-        pass
+    def __init__(self, core_id, cache, shared_bus):
+        self.core_id = core_id
+        self.cache = cache
+        self.shared_bus = shared_bus
 
-    @abstractmethod
-    def PrWr(self, address, cycle):
-        pass
+    def convert_address(self, address):
+        tag_bits = address[:len(address) - self.cache.index_bits - self.cache.offset_bits]
+        index_bits = address[len(address) - self.cache.index_bits - self.cache.offset_bits:len(
+            address) - self.cache.offset_bits]
 
-    @abstractmethod
-    def Snoop(self, transaction):
-        pass
+        index = int(index_bits, 2)
+        tag = int(tag_bits, 2)
+        return index, tag
 
 
 # Todo: Evict block with state M should actually add a new transaction with its own address, instead of new address
@@ -32,18 +30,11 @@ class MESI(Protocol):
         I = 3
 
     def __init__(self, core_id, cache, shared_bus):
-        self.core_id = core_id
-        self.cache = cache
-        self.shared_bus = shared_bus
+        super().__init__(core_id, cache, shared_bus)
 
     def PrRd(self, address, cycle):
 
-        tag_bits = address[:len(address) - self.cache.index_bits - self.cache.offset_bits]
-        index_bits = address[len(address) - self.cache.index_bits - self.cache.offset_bits:len(
-            address) - self.cache.offset_bits]
-
-        index = int(index_bits, 2)
-        tag = int(tag_bits, 2)
+        index, tag = self.convert_address(address)
         cache_set = self.cache.blocks[index]
         hit = False
         execution_cycle = 0
@@ -103,12 +94,8 @@ class MESI(Protocol):
         return execution_cycle
 
     def PrWr(self, address, cycle):
-        tag_bits = address[:len(address) - self.cache.index_bits - self.cache.offset_bits]
-        index_bits = address[len(address) - self.cache.index_bits - self.cache.offset_bits:len(
-            address) - self.cache.offset_bits]
 
-        index = int(index_bits, 2)
-        tag = int(tag_bits, 2)
+        index, tag = self.convert_address(address)
         cache_set = self.cache.blocks[index]
         hit = False
         execution_cycle = 0
@@ -125,7 +112,7 @@ class MESI(Protocol):
                     new_transaction = Transaction(self.core_id, Transaction.Type.BusRdX, address)
                     self.shared_bus.add_transaction(new_transaction)
                     self.shared_bus.unset_shared_block(address)
-        
+
         # miss, load from main memory
         if not hit:
             empty_block = -1
@@ -165,12 +152,7 @@ class MESI(Protocol):
         trans_type = transaction.trans_type
         address = transaction.address
 
-        tag_bits = address[:len(address) - self.cache.index_bits - self.cache.offset_bits]
-        index_bits = address[len(address) - self.cache.index_bits - self.cache.offset_bits:len(
-            address) - self.cache.offset_bits]
-
-        index = int(index_bits, 2)
-        tag = int(tag_bits, 2)
+        index, tag = self.convert_address(address)
         cache_set = self.cache.blocks[index]
 
         block_to_transit = None
@@ -210,23 +192,16 @@ class Dragon(Protocol):
         Sm = 3
 
     def __init__(self, core_id, cache, shared_bus):
-        self.core_id = core_id
-        self.cache = cache
-        self.shared_bus = shared_bus
+        super().__init__(core_id, cache, shared_bus)
 
     def PrRd(self, address, cycle):
 
-        tag_bits = address[:len(address) - self.cache.index_bits - self.cache.offset_bits]
-        index_bits = address[len(address) - self.cache.index_bits - self.cache.offset_bits:len(
-            address) - self.cache.offset_bits]
-
-        index = int(index_bits, 2)
-        tag = int(tag_bits, 2)
+        index, tag = self.convert_address(address)
         cache_set = self.cache.blocks[index]
         hit = False
         execution_cycle = 0
 
-        # determine cache hit, no state trasition if hit
+        # determine cache hit, no state transition if hit
         for i, block in enumerate(cache_set):
             if block.tag == tag and block.state != 'I':
                 hit = True
@@ -244,7 +219,7 @@ class Dragon(Protocol):
                     break
             if empty_block != -1:  # find empty block in cache set
                 # determine whether this cache block is shared on bus
-                if address in self.shared_bus.S: 
+                if address in self.shared_bus.S:
                     # data is retrieved from another cache
                     state = Dragon.State.Sc
                     execution_cycle += 2 * self.cache.block_size // 4
@@ -266,7 +241,8 @@ class Dragon(Protocol):
                         min_lru = block.last_used_cycle
                         min_lru_index = i
 
-                if cache_set[min_lru_index].state == Dragon.State.M or cache_set[min_lru_index].state == Dragon.State.Sm:
+                if cache_set[min_lru_index].state == Dragon.State.M or cache_set[
+                    min_lru_index].state == Dragon.State.Sm:
                     # Write dirty block back to memory
                     new_transaction = Transaction(self.core_id, Transaction.Type.Flush, address)
                     self.shared_bus.add_transaction(new_transaction)
@@ -278,7 +254,7 @@ class Dragon(Protocol):
                     self.shared_bus.add_transaction(new_transaction)
 
                 # load from main memory or other cache
-                if address in self.shared_bus.S: 
+                if address in self.shared_bus.S:
                     # data is retrieved from another cache
                     state = Dragon.State.Sc
                     execution_cycle += 2 * self.cache.block_size // 4
@@ -289,19 +265,14 @@ class Dragon(Protocol):
 
                 self.shared_bus.set_shared_block(address)
                 cache_set[min_lru_index] = CacheBlock(tag, state, cycle)
-                
 
             new_transaction = Transaction(self.core_id, Transaction.Type.BusRd, address)
             self.shared_bus.add_transaction(new_transaction)
         return execution_cycle
 
     def PrWr(self, address, cycle):
-        tag_bits = address[:len(address) - self.cache.index_bits - self.cache.offset_bits]
-        index_bits = address[len(address) - self.cache.index_bits - self.cache.offset_bits:len(
-            address) - self.cache.offset_bits]
 
-        index = int(index_bits, 2)
-        tag = int(tag_bits, 2)
+        index, tag = self.convert_address(address)
         cache_set = self.cache.blocks[index]
         hit = False
         execution_cycle = 0
@@ -327,9 +298,9 @@ class Dragon(Protocol):
                 elif block.state == Dragon.State.Sc and address in self.shared_bus.S:
                     cache_set[i] = CacheBlock(tag, Dragon.State.Sm, cycle)
                     # tell other caches that they should update their state for this particular cache line
-                    new_transaction = Transaction(self.core_id, Transaction.Type.BusUpd, address) 
+                    new_transaction = Transaction(self.core_id, Transaction.Type.BusUpd, address)
                     self.shared_bus.add_transaction(new_transaction)
-        
+
         # PrWrMiss, the cache must obtain the data block, place it in the cache, and then write the new data
         if not hit:
             empty_block = -1
@@ -341,7 +312,7 @@ class Dragon(Protocol):
 
             if empty_block != -1:  # find empty block in cache set
                 # determine whether this address is shared on bus
-                if address in self.shared_bus.S: 
+                if address in self.shared_bus.S:
                     # cache block is shared and this cache set is the owner
                     cache_set[empty_block] = CacheBlock(tag, Dragon.State.Sm, cycle)
                 else:
@@ -357,7 +328,8 @@ class Dragon(Protocol):
                         min_lru = block.last_used_cycle
                         min_lru_index = i
 
-                if cache_set[min_lru_index].state == Dragon.State.M or cache_set[min_lru_index].state == Dragon.State.Sm:
+                if cache_set[min_lru_index].state == Dragon.State.M or cache_set[
+                    min_lru_index].state == Dragon.State.Sm:
                     # Write dirty block back to memory
                     new_transaction = Transaction(self.core_id, Transaction.Type.Flush, address)
                     self.shared_bus.add_transaction(new_transaction)
@@ -372,28 +344,22 @@ class Dragon(Protocol):
                 self.shared_bus.unset_shared_block(address)
                 execution_cycle += 100
                 # determine whether this address is shared on bus
-                if address in self.shared_bus.S: 
+                if address in self.shared_bus.S:
                     # cache block is shared and this cache set is the owner
                     cache_set[min_lru_index] = CacheBlock(tag, Dragon.State.Sm, cycle)
                 else:
                     # cache block is not shared 
                     cache_set[min_lru_index] = CacheBlock(tag, Dragon.State.M, cycle)
-                
-            
+
             new_transaction = Transaction(self.core_id, Transaction.Type.BusRd, address)
             self.shared_bus.add_transaction(new_transaction)
         return execution_cycle
-    
+
     def Snoop(self, transaction):
         trans_type = transaction.trans_type
         address = transaction.address
 
-        tag_bits = address[:len(address) - self.cache.index_bits - self.cache.offset_bits]
-        index_bits = address[len(address) - self.cache.index_bits - self.cache.offset_bits:len(
-            address) - self.cache.offset_bits]
-
-        index = int(index_bits, 2)
-        tag = int(tag_bits, 2)
+        index, tag = self.convert_address(address)
         cache_set = self.cache.blocks[index]
 
         block_to_transit = None

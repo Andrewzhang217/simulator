@@ -40,7 +40,7 @@ class Bus:
 
     def get_next_transaction(self):
         return self.queue.pop()
-    
+
     def output(self):
         print('===== REPORT FOR BUS =====')
         print('Data Traffic (Bytes):', self.traffic_bytes)
