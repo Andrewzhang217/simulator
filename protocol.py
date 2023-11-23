@@ -153,7 +153,7 @@ class MESI(Protocol):
             self.shared_bus.add_transaction(new_transaction)
         return execution_cycle
 
-    def Snoop(self, transaction):
+    def snoop(self, transaction):
         if not transaction:
             return
 
@@ -339,7 +339,7 @@ class Dragon(Protocol):
             self.shared_bus.add_transaction(new_transaction)
         return execution_cycle
 
-    def Snoop(self, transaction):
+    def snoop(self, transaction):
         if not transaction:
             return
         trans_type = transaction.trans_type

@@ -41,8 +41,7 @@ class Bus:
     def get_next_transaction(self):
         if self.queue:
             return self.queue.pop()
-        else:
-            return None
+        return None
 
     def output(self):
         print('===== REPORT FOR BUS =====')
