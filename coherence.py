@@ -46,7 +46,7 @@ def main():
         while shared_bus.queue:
             transaction = shared_bus.get_next_transaction()
             for core in cores:
-                core.protocol.snoop(transaction)
+                core.cycles += core.protocol.snoop(transaction)
         global_cycle += 1
 
     print('===== END OF EXECUTION =====')

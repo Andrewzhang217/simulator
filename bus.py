@@ -21,6 +21,7 @@ class Bus:
         self.queue = deque()
         self.traffic_bytes = 0
         self.invalidations = 0
+        self.updates = 0
         self.public_access = 0
         self.private_access = 0
 
@@ -49,6 +50,7 @@ class Bus:
         print('===== REPORT FOR BUS =====')
         print('Data Traffic (Bytes):', self.traffic_bytes)
         print('Invalidations:', self.invalidations)
+        print('Updates:', self.updates)
         print('Access to Private Data:', (self.private_access / (self.private_access + self.public_access)) * 100, "%")
         print('Access to Public Data:', (self.public_access / (self.private_access + self.public_access)) * 100, "%")
         print('\n')

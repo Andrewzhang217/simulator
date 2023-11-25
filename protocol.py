@@ -147,9 +147,14 @@ class MESI(Protocol):
         return execution_cycle
 
     def snoop(self, transaction):
-        if not transaction or not transaction.address:
-            return
+        if not transaction:
+            return 0
 
+        if not transaction.address:  # Flush request on bus
+            self.shared_bus.traffic_bytes += self.cache.block_size
+            return 0
+
+        cycles = 0
         trans_type = transaction.trans_type
         address = transaction.address
 
@@ -164,7 +169,7 @@ class MESI(Protocol):
                     block_to_transit = block
 
             if block_to_transit is None:
-                return
+                return 0
 
             self.shared_bus.traffic_bytes += self.cache.block_size
             if trans_type == Transaction.Type.BusRd:
@@ -173,6 +178,7 @@ class MESI(Protocol):
                     block_to_transit.state = MESI.State.S
                     new_transaction = Transaction(self.core_id, Transaction.Type.Flush)
                     self.shared_bus.add_transaction(new_transaction)
+                    cycles += 100
 
                 if block_to_transit.state == MESI.State.S:
                     self.shared_bus.public_access += 1
@@ -184,11 +190,14 @@ class MESI(Protocol):
                     self.shared_bus.invalidations += 1
                     new_transaction = Transaction(self.core_id, Transaction.Type.Flush)
                     self.shared_bus.add_transaction(new_transaction)
+                    cycles += 100
+
                 elif block_to_transit.state == MESI.State.S:
                     self.shared_bus.public_access += 1
                     block_to_transit.state = MESI.State.I
                     self.shared_bus.invalidations += 1
                 self.shared_bus.unset_shared_block(address)
+        return cycles
 
 
 class Dragon(Protocol):
@@ -338,7 +347,14 @@ class Dragon(Protocol):
 
     def snoop(self, transaction):
         if not transaction:
-            return
+            return 0
+
+        if not transaction.address:  # Flush request on bus
+            self.shared_bus.traffic_bytes += self.cache.block_size
+            return 0
+
+        cycles = 0
+
         trans_type = transaction.trans_type
         address = transaction.address
 
@@ -353,7 +369,7 @@ class Dragon(Protocol):
                     block_to_transit = block
 
             if block_to_transit is None:
-                return
+                return 0
 
             self.shared_bus.traffic_bytes += self.cache.block_size
             if block_to_transit.state == Dragon.State.Sm or block_to_transit.state == Dragon.State.Sc:
@@ -366,10 +382,13 @@ class Dragon(Protocol):
                     block_to_transit.state = Dragon.State.Sm
                     new_transaction = Transaction(self.core_id, Transaction.Type.Flush)
                     self.shared_bus.add_transaction(new_transaction)
+                    cycles = 100
 
                 if block_to_transit.state == Dragon.State.Sc or block_to_transit.state == Dragon.State.E:
                     block_to_transit.state = Dragon.State.Sc
 
             elif trans_type == Transaction.Type.BusUpd:
+                self.shared_bus.updates += 1
                 if block_to_transit.state == Dragon.State.Sm or block_to_transit.state == Dragon.State.Sc:
                     block_to_transit.state = Dragon.State.Sc
+        return cycles
