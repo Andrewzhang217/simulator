@@ -43,8 +43,7 @@ def main():
                 has_instr = True
                 core.execute(global_cycle)
 
-        q_size = len(shared_bus.queue)
-        for _ in range(q_size):
+        while shared_bus.queue:
             transaction = shared_bus.get_next_transaction()
             for core in cores:
                 core.protocol.snoop(transaction)
